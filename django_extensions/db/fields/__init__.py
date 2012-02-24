@@ -76,21 +76,16 @@ class AutoSlugField(SlugField):
             self._populate_from = (self._populate_from, )
         slug_field = model_instance._meta.get_field(self.attname)
 
-        if add or self.overwrite:
-            # slugify the original field content and set next step to 2
-            slug_for_field = lambda field: self.slugify_func(getattr(model_instance, field))
-            slug = self.separator.join(map(slug_for_field, self._populate_from))
-            next = 2
-        else:
-            # get slug from the current model instance and calculate next
-            # step from its number, clean-up
+        if not add and not self.overwrite:
+            # no point in recalculating a slug if we already have a
+            # perfectly good one stored on the instance
             slug = self._slug_strip(getattr(model_instance, self.attname))
-            next = slug.split(self.separator)[-1]
-            if next.isdigit() and not self.allow_duplicates:
-                slug = self.separator.join(slug.split(self.separator)[:-1])
-                next = int(next)
-            else:
-                next = 2
+            return slug
+
+        # slugify the original field content and set next step to 2
+        slug_for_field = lambda field: self.slugify_func(getattr(model_instance, field))
+        slug = self.separator.join(map(slug_for_field, self._populate_from))
+        next = 2
 
         # strip slug depending on max_length attribute of the slug field
         # and clean-up
@@ -109,7 +104,7 @@ class AutoSlugField(SlugField):
         if model_instance.pk:
             queryset = queryset.exclude(pk=model_instance.pk)
 
-        # form a kwarg dict used to impliment any unique_together contraints
+        # form a kwarg dict used to implement any unique_together contraints
         kwargs = {}
         for params in model_instance._meta.unique_together:
             if self.attname in params:
